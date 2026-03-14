@@ -50,6 +50,13 @@ app.get("/", (req, res) => {
   res.send("Backend running!");
 });
 
+router.get("/db-test", (req, res) => {
+  db.query("SELECT 1", (err, result) => {
+    if (err) return res.status(500).json({ message: "DB not reachable", error: err });
+    res.json({ message: "DB OK", result });
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

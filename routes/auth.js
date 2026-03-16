@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("../db");
 const multer = require("multer");
-
+const sendMail = require("../utils/sendMail");
 /* ================= MULTER ================= */
 
 const storage = multer.diskStorage({
@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 /* ================= REGISTER ================= */
-const sendOTPEmail = require("../utils/sendMail");
+// await sendOTPEmail(email, "Your OTP Code", `<h2>Your OTP is: ${otp}</h2>`);
 
 let otpStore = {}; // temporary memory
 

@@ -185,11 +185,16 @@ const parseJSON = (data, fallback = []) => {
   return fallback;
 };
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
+
+const propertyUpload = upload.fields([
+  { name: "images", maxCount: 10 },
+  { name: "video", maxCount: 1 }
+]);
 
 router.get("/all-properties", (req, res) => {
 
-  let { location, type, rooms, baths, page = 1, limit = 6 } = req.query;
+  let { location, type, rooms, baths, pgType, page = 1, limit = 6 } = req.query;
 
   page = Number(page);
   limit = Number(limit);
@@ -232,6 +237,11 @@ if (location) {
     sql += " AND properties.bathrooms=?";
     params.push(Number(baths));
   }
+  // pg type
+if (pgType) {
+  sql += " AND LOWER(properties.pgType) = LOWER(?)";
+  params.push(pgType);
+}
 
   /* ================= COUNT QUERY ================= */
 
@@ -295,7 +305,7 @@ if (location) {
   });
 });
 
-router.post("/", upload.array("images"), (req, res) => {
+router.post("/", propertyUpload, (req, res) => {
 
   const {
     user_id,
@@ -318,7 +328,13 @@ router.post("/", upload.array("images"), (req, res) => {
     meals,
   } = req.body;
 
-  const images = req.files.map(file => file.filename);
+  const images = req.files.images
+  ? req.files.images.map(file => file.filename)
+  : [];
+
+const video = req.files.video
+  ? req.files.video[0].filename
+  : null;
 
   const slugify = (text) => {
     return text
@@ -351,9 +367,10 @@ router.post("/", upload.array("images"), (req, res) => {
     slug,
     description,
     features,
-    images
+    images,
+    video
   )
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `;
 
   db.query(sql, [
@@ -440,9 +457,14 @@ router.get("/property/:id", (req, res) => {
 });
 
 /* ===== UPDATE PROPERTY ===== */
-router.put("/:id", upload.array("images"), (req, res) => {
+router.put("/:id", propertyUpload, (req, res) => {
 
   const propertyId = req.params.id;
+
+const newVideo =
+  req.files.video && req.files.video.length > 0
+    ? req.files.video[0].filename
+    : req.body.existingVideo || null;
 
   const {
     offerType,
@@ -511,7 +533,8 @@ router.put("/:id", upload.array("images"), (req, res) => {
       slug=?,
       description=?,
       features=?,
-      images=?
+      images=?,
+      video=?
     WHERE id=?
   `;
 
@@ -534,6 +557,7 @@ router.put("/:id", upload.array("images"), (req, res) => {
     description,
     features,
     JSON.stringify(finalImages),
+    newVideo,
     propertyId
   ], (err) => {
 

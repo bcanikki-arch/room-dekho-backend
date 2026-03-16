@@ -24,15 +24,33 @@ const upload = multer({ storage });
 let otpStore = {}; // temporary memory
 
 router.post("/send-otp", async (req, res) => {
-  const { email } = req.body;
+  try {
+    const { email } = req.body;
 
-  const otp = Math.floor(100000 + Math.random() * 900000);
+    if (!email) {
+      return res.status(400).json({ message: "Email required" });
+    }
 
-  otpStore[email] = otp;
+    const otp = Math.floor(100000 + Math.random() * 900000);
 
-  await sendMail(email, "Your OTP Code", `<h2>Your OTP is: ${otp}</h2>`);
+    otpStore[email] = otp;
 
-  res.json({ message: "OTP sent" });
+    await sendMail(
+      email,
+      "Your OTP Code",
+      `<h2>Your OTP is: ${otp}</h2>`
+    );
+
+    res.json({ message: "OTP sent" });
+    
+  } catch (error) {
+    console.error("SEND OTP ERROR:", error);
+
+    res.status(500).json({
+      message: "Failed to send OTP",
+      error: error.message
+    });
+  }
 });
 
 router.post("/verify-otp", (req, res) => {

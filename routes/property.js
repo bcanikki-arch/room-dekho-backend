@@ -458,16 +458,9 @@ router.get("/property/:id", (req, res) => {
     }
   );
 });
-
-/* ===== UPDATE PROPERTY ===== */
 router.put("/:id", propertyUpload, (req, res) => {
 
   const propertyId = req.params.id;
-
-const newVideo =
-  req.files.video && req.files.video.length > 0
-    ? req.files.video[0].filename
-    : req.body.existingVideo || null;
 
   const {
     offerType,
@@ -489,8 +482,27 @@ const newVideo =
     existingImages
   } = req.body;
 
-  // 👇 parse existing images coming from frontend
+
+  // ✅ FIX EMPTY INTEGER VALUES
+  const single_price = parseInt(singlePrice) || null;
+  const double_price = parseInt(doublePrice) || null;
+  const triple_price = parseInt(triplePrice) || null;
+
+
+  // =============================
+  // EXISTING VIDEO
+  // =============================
+  const newVideo =
+    req.files?.video && req.files.video.length > 0
+      ? req.files.video[0].filename
+      : req.body.existingVideo || null;
+
+
+  // =============================
+  // EXISTING IMAGES
+  // =============================
   let remainingImages = [];
+
   if (existingImages) {
     try {
       remainingImages = JSON.parse(existingImages);
@@ -499,16 +511,26 @@ const newVideo =
     }
   }
 
-  // 👇 new uploaded images
+
+  // =============================
+  // NEW IMAGES
+  // =============================
   let newImages = [];
 
-  if (req.files && req.files.images) {
+  if (req.files?.images) {
     newImages = req.files.images.map(file => file.filename);
   }
 
-  // 👇 combine remaining old + new
+
+  // =============================
+  // FINAL IMAGES
+  // =============================
   const finalImages = [...remainingImages, ...newImages];
 
+
+  // =============================
+  // SLUG GENERATOR
+  // =============================
   const slugify = (text) => {
     return text
       .toLowerCase()
@@ -518,6 +540,10 @@ const newVideo =
 
   const slug = slugify(title);
 
+
+  // =============================
+  // UPDATE QUERY
+  // =============================
   const updateSql = `
     UPDATE properties SET
       offerType=?,
@@ -542,6 +568,7 @@ const newVideo =
     WHERE id=?
   `;
 
+
   db.query(updateSql, [
     offerType,
     propertyType,
@@ -552,9 +579,9 @@ const newVideo =
     address,
     locality,
     nearbyRoad,
-    singlePrice,
-    doublePrice,
-    triplePrice,
+    single_price,
+    double_price,
+    triple_price,
     meals,
     title,
     slug,
@@ -566,15 +593,137 @@ const newVideo =
   ], (err) => {
 
     if (err) {
-      console.log(err);
-      return res.status(500).json({ message: "Update failed" });
+      console.log("Update Error:", err);
+      return res.status(500).json({
+        success:false,
+        message: "Update failed"
+      });
     }
 
-    res.json({ message: "Property updated successfully" });
+    res.json({
+      success:true,
+      message: "Property updated successfully"
+    });
 
   });
 
 });
+/* ===== UPDATE PROPERTY ===== */
+// router.put("/:id", propertyUpload, (req, res) => {
+
+//   const propertyId = req.params.id;
+
+// const newVideo =
+//   req.files.video && req.files.video.length > 0
+//     ? req.files.video[0].filename
+//     : req.body.existingVideo || null;
+
+//   const {
+//     offerType,
+//     propertyType,
+//     price,
+//     rooms,
+//     bathrooms,
+//     parking,
+//     address,
+//     locality,
+//     title,
+//     description,
+//     nearbyRoad,
+//     features,
+//     singlePrice,
+//     doublePrice,
+//     triplePrice,
+//     meals,
+//     existingImages
+//   } = req.body;
+
+//   // 👇 parse existing images coming from frontend
+//   let remainingImages = [];
+//   if (existingImages) {
+//     try {
+//       remainingImages = JSON.parse(existingImages);
+//     } catch {
+//       remainingImages = [];
+//     }
+//   }
+
+//   // 👇 new uploaded images
+//   let newImages = [];
+
+//   if (req.files && req.files.images) {
+//     newImages = req.files.images.map(file => file.filename);
+//   }
+
+//   // 👇 combine remaining old + new
+//   const finalImages = [...remainingImages, ...newImages];
+
+//   const slugify = (text) => {
+//     return text
+//       .toLowerCase()
+//       .replace(/[^a-z0-9]+/g, "-")
+//       .replace(/(^-|-$)/g, "");
+//   };
+
+//   const slug = slugify(title);
+
+//   const updateSql = `
+//     UPDATE properties SET
+//       offerType=?,
+//       propertyType=?,
+//       price=?,
+//       rooms=?,
+//       bathrooms=?,
+//       parking=?,
+//       address=?,
+//       locality=?,
+//       nearbyRoad=?,
+//       singlePrice=?,
+//       doublePrice=?,
+//       triplePrice=?,
+//       meals=?,
+//       title=?,
+//       slug=?,
+//       description=?,
+//       features=?,
+//       images=?,
+//       video=?
+//     WHERE id=?
+//   `;
+
+//   db.query(updateSql, [
+//     offerType,
+//     propertyType,
+//     price,
+//     rooms,
+//     bathrooms,
+//     parking,
+//     address,
+//     locality,
+//     nearbyRoad,
+//     singlePrice,
+//     doublePrice,
+//     triplePrice,
+//     meals,
+//     title,
+//     slug,
+//     description,
+//     features,
+//     JSON.stringify(finalImages),
+//     newVideo,
+//     propertyId
+//   ], (err) => {
+
+//     if (err) {
+//       console.log(err);
+//       return res.status(500).json({ message: "Update failed" });
+//     }
+
+//     res.json({ message: "Property updated successfully" });
+
+//   });
+
+// });
 router.get("/top-properties", (req, res) => {
 
   const sql = `

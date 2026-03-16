@@ -344,7 +344,9 @@ const video = req.files.video
   };
 
   const slug = slugify(title);
-
+      const single_price = parseInt(singlePrice) || null;
+      const double_price = parseInt(doublePrice) || null;
+      const triple_price = parseInt(triplePrice) || null;
   const sql = `
   INSERT INTO properties
   (
@@ -385,9 +387,9 @@ const video = req.files.video
     address,
     locality,
     nearbyRoad,
-    singlePrice,
-    doublePrice,
-    triplePrice,
+    single_price,
+    double_price,
+    triple_price,
     meals,
     title,
     slug,

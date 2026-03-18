@@ -23,45 +23,77 @@ const upload = multer({ storage });
 
 let otpStore = {}; // temporary memory
 
+// router.post("/send-otp", async (req, res) => {
+//   try {
+//     const { email } = req.body;
+
+//     if (!email) {
+//       return res.status(400).json({ message: "Email required" });
+//     }
+
+//     const otp = Math.floor(100000 + Math.random() * 900000);
+
+//     otpStore[email] = otp;
+
+//     await sendMail(
+//       email,
+//       "Your OTP Code",
+//       `<h2>Your OTP is: ${otp}</h2>`
+//     );
+
+//     res.json({ message: "OTP sent" });
+    
+//   } catch (error) {
+//     console.error("SEND OTP ERROR:", error);
+
+//     res.status(500).json({
+//       message: "Failed to send OTP",
+//       error: error.message
+//     });
+//   }
+// });
+
 router.post("/send-otp", async (req, res) => {
   try {
     const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email required" });
 
-    if (!email) {
-      return res.status(400).json({ message: "Email required" });
-    }
+    // Check if user exists
+    db.query("SELECT * FROM users WHERE email = ?", [email], async (err, results) => {
+      if (err) return res.status(500).json({ message: "DB error" });
+      if (results.length === 0) return res.status(404).json({ message: "Email not registered" });
 
-    const otp = Math.floor(100000 + Math.random() * 900000);
+      const otp = Math.floor(100000 + Math.random() * 900000);
+      otpStore[email] = otp;
 
-    otpStore[email] = otp;
+      await sendMail(email, "Your OTP Code", `<h2>Your OTP is: ${otp}</h2>`);
 
-    await sendMail(
-      email,
-      "Your OTP Code",
-      `<h2>Your OTP is: ${otp}</h2>`
-    );
-
-    res.json({ message: "OTP sent" });
-    
+      res.json({ message: "OTP sent" });
+    });
   } catch (error) {
     console.error("SEND OTP ERROR:", error);
-
-    res.status(500).json({
-      message: "Failed to send OTP",
-      error: error.message
-    });
+    res.status(500).json({ message: "Failed to send OTP", error: error.message });
   }
 });
-
 router.post("/verify-otp", (req, res) => {
   const { email, otp } = req.body;
 
-  if (otpStore[email] == otp) {
-    delete otpStore[email];
-    return res.json({ verified: true });
+  if (!otpStore[email]) {
+    return res.status(400).json({ message: "OTP not found for this email" });
   }
 
-  res.status(400).json({ message: "Invalid OTP" });
+  // Optional: check if email exists in DB
+  db.query("SELECT * FROM users WHERE email = ?", [email], (err, results) => {
+    if (err) return res.status(500).json({ message: "Database error" });
+    if (results.length === 0) return res.status(404).json({ message: "Email not registered" });
+
+    if (otpStore[email] == otp) {
+      delete otpStore[email];
+      return res.json({ verified: true });
+    } else {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+  });
 });
 router.post("/register", async (req, res) => {
   const { firstName, lastName, email, phone, password, role } = req.body;
@@ -277,5 +309,66 @@ router.put("/update-profile", upload.single("photo"), (req, res) => {
 
   }
 
+});
+/* ================= CHANGE PASSWORD (LOGIN USER) ================= */
+router.put("/change-password", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const userId = decoded.id;
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ message: "New password required" });
+    }
+
+    // hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    db.query(
+      "UPDATE users SET password=? WHERE id=?",
+      [hashedPassword, userId],
+      (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Database error" });
+        }
+
+        res.json({ message: "Password updated successfully" });
+      }
+    );
+  } catch (err) {
+    res.status(401).json({ message: "Invalid or expired token" });
+  }
+});
+router.put("/reset-password", async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) return res.status(400).json({ message: "Email, OTP, and new password required" });
+
+    if (!otpStore[email] || otpStore[email] != otp) return res.status(400).json({ message: "Invalid or expired OTP" });
+
+    // Delete used OTP
+    delete otpStore[email];
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    db.query("UPDATE users SET password=? WHERE email=?", [hashedPassword, email], (err) => {
+      if (err) return res.status(500).json({ message: "Database error" });
+
+      res.json({ message: "Password reset successfully" });
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 });
 module.exports = router;
